@@ -27,15 +27,11 @@ class NoteHelper {
   }
 
   static Future<void> getAllNote() async {
-    var box = Hive.box(noteBox);
-
-    notes = box
-        .get(noteKey, defaultValue: <String>[])!
-        .cast<String>();
+    await Future.delayed(Duration(seconds: 3));
+    if (noteBox.isNotEmpty && Hive.box(noteBox).get(noteKey) != null) {
+      notes = await Hive.box(noteBox).get(noteKey);
+    }
   }
-  //static Future<void> getAllNote() async {
-//     notes = await Hive.box(noteBox).get(noteKey);
-//   }
 }
 
 

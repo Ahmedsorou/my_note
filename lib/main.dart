@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:my_note/cubit/note_cubit.dart';
 import 'package:my_note/splash/splash_screen.dart';
 
 import 'hive_helper/hive_helper.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Hive
@@ -23,10 +25,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
-      home:SplashScreen()
+    return BlocProvider(
+      create: (context) => NoteCubit()..getNotes(),
+      child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Flutter Demo',
+          home: SplashScreen()
+      ),
     );
   }
 }

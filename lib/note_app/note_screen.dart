@@ -1,175 +1,129 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_note/hive_helper/hive_helper.dart';
 
+import '../cubit/note_cubit.dart';
 import 'note_item.dart';
 
-class NoteScreen extends StatefulWidget {
-  const NoteScreen({super.key});
 
-  @override
-  State<NoteScreen> createState() => _NoteScreenState();
-}
-
-class _NoteScreenState extends State<NoteScreen> {
-  final TextEditingController controller = TextEditingController();
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-  @override
-  void initState() {
-    super.initState();
-    NoteHelper.getAllNote().then((_) {
-      setState(() {});
-    });
-  }
-  Future<void> _showNoteDialog({
-    required String title,
-    required String buttonText,
-    required VoidCallback onPressed,
-  }) async {
-    await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: "Enter note...",
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: onPressed,
-            child: Text(buttonText),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _confirmDeleteAll() async {
-    bool? confirm = await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Confirm"),
-        content: const Text("Are you sure you want to delete all notes?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Yes"),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      NoteHelper.deleteAllNote();
-      setState(() {});
-    }
-  }
+class NoteScreen extends StatelessWidget {
+  TextEditingController controller = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
+    final cubit = context.read<NoteCubit>();
     return Scaffold(
-      backgroundColor: const Color(0xffF5F6FA),
-
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.amber.shade400,
-        centerTitle: false,
-        title: const Text(
-          "My Notes",
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
+        title: Text("Note App"),
         actions: [
-          IconButton(
-            onPressed: _confirmDeleteAll,
-            icon: const Icon(Icons.delete_sweep, color: Colors.red,size: 40,),
-          )
+          TextButton(
+            onPressed: () {
+              cubit.deleteAllNotes();
+            },
+            child: Text("Clear All"),
+          ),
         ],
       ),
-
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepPurple,
-        elevation: 6,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        onPressed: () {
+        onPressed: () async {
           controller.clear();
-          _showNoteDialog(
-            title: "Add Note",
-            buttonText: "Add",
-            onPressed: () {
-              if (controller.text.trim().isEmpty) return;
-              NoteHelper.addNote(controller.text.trim());
-              setState(() {});
-              Navigator.pop(context);
+          AlertDialog alert = AlertDialog(
+            title: Text("Add Note"),
+            content: TextField(controller: controller),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  cubit.addNote(controller.text);
+                  Navigator.pop(context);
+                },
+                child: Text("Add"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text("Cancel"),
+              ),
+            ],
+          );
+
+          await showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return alert;
             },
           );
         },
-        child: const Icon(Icons.add, size: 28,color: Colors.white,),
+        child: Icon(Icons.add),
       ),
+      body: BlocBuilder<NoteCubit, NoteState>(
+        builder: (context, state) {
+          if (state is NoteLoadingState) {
+            return Center(child: CircularProgressIndicator());
+          }
 
-      body: NoteHelper.notes.isEmpty
-          ? const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.note_alt_outlined,
-                size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              "No Notes Yet",
-              style: TextStyle(
-                fontSize: 20,
-                color: Colors.grey,
+          return ListView.builder(
+            itemCount: NoteHelper.notes.length,
+            itemBuilder: (c, i) => InkWell(
+              onTap: () async {
+                controller.text = NoteHelper.notes[i];
+                AlertDialog alert = AlertDialog(
+                  title: Text("Update Note"),
+                  content: TextField(controller: controller),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        cubit.updateNote(text: controller.text, i: i);
+                        Navigator.pop(context);
+                      },
+                      child: Text("Update"),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text("Cancel"),
+                    ),
+                  ],
+                );
+
+                await showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return alert;
+                  },
+                );
+              },
+              child: Stack(
+                children: [
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    margin: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: i == 0
+                          ? Colors.blue.withValues(alpha: .2)
+                          : i % 2 == 0
+                          ? Colors.red.withValues(alpha: .2)
+                          : Colors.green.withValues(alpha: .2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        NoteHelper.notes[i],
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      cubit.deleteNote(i);
+                    },
+                    icon: Icon(Icons.delete, color: Colors.red),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 10),
-        itemCount: NoteHelper.notes.length,
-        itemBuilder: (context, i) {
-          return NoteItem(
-            note: NoteHelper.notes[i],
-            onDelete: () {
-              NoteHelper.deleteNote(i);
-              setState(() {});
-            },
-            onTap: () {
-              controller.text = NoteHelper.notes[i];
-              _showNoteDialog(
-                title: "Update Note",
-                buttonText: "Update",
-                onPressed: () {
-                  if (controller.text.trim().isEmpty) return;
-                  NoteHelper.updateNote(
-                      controller.text.trim(), i);
-                  setState(() {});
-                  Navigator.pop(context);
-                },
-              );
-            },
           );
         },
       ),
